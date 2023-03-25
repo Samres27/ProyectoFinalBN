@@ -1,0 +1,808 @@
+format PE GUI 4.0
+entry inicio
+
+include 'Win32a.inc'
+
+ventana_1	equ		1
+ventana_2	equ		1
+salir_btn	equ		1000
+cdXPos	    EQU  28	     ; Constante double X-Posición de la ventana(esq sup izqda)
+cdYPos	    EQU  100	     ; Constante double Y-Posición de la ventana(esq sup izqda)
+cdXSize     EQU  500	     ; Constante double X-tamaño de la ventana
+cdYSize     EQU  500	     ; Constante double Y-tamaño de la ventana
+cdColFondo  EQU  COLOR_BTNFACE + 1  ; Color de fondo de la ventana: gris de un botón de comando
+cdVIcono    EQU  IDI_APPLICATION ; Icono de la ventana, véase Resource.H
+cdVCursor   EQU  IDC_ARROW   ; Cursor para la ventana
+; Tipo de ventana (Barra de cabecera)
+; cdVBarTipo  EQU  WS_EX_TOOLWINDOW			; Tipo de barra de Cabecera: delgado, sin icono, sin reflejo en la barra de tareas
+cdVBarTipo  EQU  NULL				      ; Normal, con icono
+cdVBtnTipo  EQU  WS_VISIBLE+WS_DLGFRAME+WS_SYSMENU    ; Normal sólo con botón cerrar
+; cdVBtnTipo	 EQU  WS_OVERLAPPEDWINDOW		 ; Normal sólo con los tres botones
+      
+section '.data' data readable writeable
+;
+;
+;
+coltv dd 0
+valorx dd 0
+valory dd 0
+valormedio dd 250
+valortotal dd 500
+Ist  dd 0
+lst1 dd 0
+pWnd dd 0
+rectax dd 0
+rectab dd 0
+rectaa dd 0
+rectac dd 0
+
+curvaa dd 0
+curvad dd 0
+curvae dd 0
+curvaf dd 0
+
+elipseh dd 0
+elipsea dd 0
+elipsek dd 0
+elipseb dd 0
+elipsev1 dd 1
+elipsep1 dd 0
+elipsep2 dd 0
+vlantx dd 0
+vlanty1 dd 0
+vlanty2 dd 0
+vlacty1 dd 0
+vlacty2 dd 0
+
+
+resultado dd 0
+verificar dd 0 
+resultRec dd 0
+resultCurv dd 0
+resultElips dd 0
+checkbox1R dd 0
+checkbox2C dd 0
+checkbox2CA dd 0
+checkbox2CB dd 0
+checkbox3E dd 0
+wHMain	rd    1
+  hWnd		rd    1
+  wHandle	rd    1
+
+  MsgCabecera	db    "graficadora donde se muestra", 0
+  NombreClase	db    "EXP01",0
+
+  MsgError	db    "Carga inicial fallida.",0
+
+  wMsg		MSG
+  wc		WNDCLASS
+
+  hdc		rd    1
+  ps		PAINTSTRUCT
+
+  ulb		LOGBRUSH
+  hPen		rd    1
+  hPenOld	rd    1
+  uhBrush	rd    1
+  hBrushOld	rd    1
+  ;
+  ;
+section '.code' code readable executable
+
+inicio:
+	invoke GetModuleHandle,0
+	mov [Ist],eax
+	invoke DialogBoxParam,eax,ventana_1,0,DlgProc,0 
+fin:
+	invoke ExitProcess,0
+
+proc DlgProc,hWnd,uMsg,wParam,lParam
+	push edi esi ebx
+	
+	mov eax,[uMsg]
+	cmp	eax,WM_COMMAND
+	je	jCOMMAND
+	cmp	eax,WM_INITDIALOG
+	je	jINITDIALOG
+	cmp	eax,WM_CLOSE
+	je	jCLOSE
+	xor eax,eax
+	jmp finish
+
+jINITDIALOG:
+	mov eax,[hWnd]
+	mov [pWnd],eax
+	
+	mov eax,1
+	jmp finish
+	
+jCOMMAND:
+	mov eax,[wParam]
+	cmp	eax,1000
+	je	crear
+	
+	xor eax,eax
+	jmp finish
+	
+salir:
+	invoke SendMessage,[hWnd],WM_CLOSE,0,0
+	mov eax,1
+	jmp finish
+	
+crear:
+	;verificamos los checkbox
+		invoke IsDlgButtonChecked,[pWnd],1005
+		mov[checkbox1R],eax
+		
+		invoke IsDlgButtonChecked,[pWnd],1018
+		mov[checkbox2C],eax
+		
+		invoke IsDlgButtonChecked,[pWnd],1019
+		mov[checkbox2CA],eax
+		
+		invoke IsDlgButtonChecked,[pWnd],1020
+		mov[checkbox2CB],eax
+		
+		invoke IsDlgButtonChecked,[pWnd],1030
+		mov[checkbox3E],eax
+		
+		
+		
+	mov eax,[checkbox1R]		
+	cmp eax,BST_UNCHECKED
+	je sigg1
+		invoke GetDlgItemInt,[pWnd],1001,verificar,1
+		cmp [verificar],0
+		je finish
+		mov dword[rectaa],eax
+		
+		invoke GetDlgItemInt,[pWnd],1002,verificar,1
+		cmp [verificar],0
+		je finish
+		mov dword[rectab],eax;toda la palabra
+	
+		invoke GetDlgItemInt,[pWnd],1007,verificar,1
+		cmp [verificar],0
+		je finish
+		mov dword[rectac],eax
+		jmp impr
+		;;fin captura para recta
+	sigg1:
+	mov eax,[checkbox2C]		
+	cmp eax,BST_UNCHECKED
+	je sigg12
+		invoke GetDlgItemInt,[pWnd],1009,verificar,1
+		cmp [verificar],0
+		je finish
+		mov dword[curvaa],eax
+		
+		invoke GetDlgItemInt,[pWnd],1010,verificar,1
+		cmp [verificar],0
+		je finish
+		mov dword[curvad],eax;toda la palabra
+	
+		invoke GetDlgItemInt,[pWnd],1011,verificar,1
+		cmp [verificar],0
+		je finish
+		mov dword[curvae],eax
+		
+		invoke GetDlgItemInt,[pWnd],1012,verificar,1
+		cmp [verificar],0
+		je finish
+		mov dword[curvaf],eax
+		jmp impr
+		;;fin captura para curva
+	sigg12:	
+	mov eax,[checkbox3E]		
+	cmp eax,BST_UNCHECKED
+	je finish
+		invoke GetDlgItemInt,[pWnd],1021,verificar,1
+		cmp [verificar],0
+		je finish
+		mov dword[elipseh],eax
+		
+		invoke GetDlgItemInt,[pWnd],1022,verificar,1
+		cmp [verificar],0
+		je finish
+		mov dword[elipsea],eax;toda la palabra
+	
+		invoke GetDlgItemInt,[pWnd],1023,verificar,1
+		cmp [verificar],0
+		je finish
+		mov dword[elipsek],eax
+		
+		invoke GetDlgItemInt,[pWnd],1024,verificar,1
+		cmp [verificar],0
+		je finish
+		mov dword[elipseb],eax
+		;;fin captura para curva
+	impr:	
+	invoke GetModuleHandle,NULL
+	mov       [wc.hInstance], eax
+    mov       [wc.lpfnWndProc], WndProc
+    mov       [wc.lpszClassName], NombreClase
+    mov       [wc.hbrBackground], COLOR_BTNFACE+1
+   	stdcall   WinMain, [wc.hInstance], NULL, NULL, SW_SHOWNORMAL
+	
+    jmp finish
+sumar:
+	invoke GetDlgItemInt,[pWnd],1001,verificar,1
+	cmp [verificar],0
+	je finish
+	;mov dword[n1],eax
+	;primer numero
+	invoke GetDlgItem,[pWnd],1002,verificar,1
+	cmp [verificar],0
+	je finish
+	;mov dword[n2],eax;toda la palabra
+	finit 
+	
+	;fwait
+	; ya tenemos nuestra resta en 
+	invoke SetDlgItemInt,[pWnd],1003,[resultado],1
+	mov eax,1
+	jmp finish ; importante sino salta a close
+	
+jCLOSE:	
+	invoke EndDialog,[hWnd],0
+	mov eax,1
+	
+finish:
+	pop ebx esi edi
+	ret
+endp
+
+proc  CambiaColorFondo newColor, uhdc
+    ;  Propósito: Modifica el color de fondo por defecto
+    ;  Entrada	: newColor:DWORD, uhdc:DWORD
+    ;  Salida	: Ninguna
+    ;  Destruye : Ninguna
+    ;LOCAL     ulb:LOGBRUSH, uhBrush:DWORD, uhBrushOld:DWORD
+    mov       [ulb.lbStyle], BS_SOLID
+    mov       eax, [newColor]
+    mov       [ulb.lbColor], eax	; BBGGRR, color
+    mov       [ulb.lbHatch], NULL
+    invoke    CreateBrushIndirect, ulb
+    mov       [uhBrush], eax
+    invoke    SelectObject,[uhdc],[uhBrush]	; Aplicamos el color de fondo
+;     mov	[hBrushOld], eax
+    ret
+endp
+
+proc DibujaFiguraR,hWnd
+    ;  Propósito: Dibuja una figura en nuestra ventana
+    ;  Entrada	: newColor:DWORD, uhdc:DWORD, uhPen:DWORD
+    ;  Salida	: Ninguna
+    ;  Destruye : Ninguna
+    invoke    BeginPaint,[hWnd], ps	       ; Devuelve un handle donde dibujar
+    mov       [hdc], eax		       ; Guardamos el contexto de dispositivo
+    ; La línea de las figuras las pintamos en rojo con CrexatePen
+    invoke    CreatePen,PS_SOLID,1,000000FFh   ; Rojo
+    mov       [hPen], eax		       ; Creamos la pluma del color especificado
+    invoke    SelectObject,[hdc],[hPen]        ; Aplicamos el color a las líneas
+    mov       [hPenOld], eax		       ; Guardamos la pluma original
+    stdcall   CambiaColorFondo,  0A5CFF8h, [hdc]  ; BBGGRR-Piel
+    mov       [hBrushOld], eax		       ; Guardamos el fondo original
+    ; aquí dibujamos la figura 
+   ;invoke    Ellipse,[ps.hdc],130,10,190,90   ; Dibujamos la cabeza
+   	mov [coltv],500;
+   	mov [valorx],1;
+   		finit
+   		fild [valorx]
+   		fild [valormedio]
+   		fsub st0,st1
+		fild [rectaa]
+		fmul st0,st1
+		fild [rectac]
+		fadd st0,st1
+		fild [rectab]
+		fxch 
+		fdiv st0,st1
+		fild [valormedio]
+		fadd st0,st1
+		FRNDINT 
+		fist[resultRec]
+		;fadd st0,st1
+		;fist [resultado
+		fwait
+		
+		
+   		
+   	
+   	dbr:
+   		invoke MoveToEx,[ps.hdc],[valorx],[resultRec],0; para que incicie en un valor donde se puede y no produsca error
+   	    sub [coltv],10 
+   		add [valorx],10
+   		finit
+   		fild [valorx]
+   		fild [valormedio]
+   		fsub st0,st1
+		fild [rectaa]
+		fmul st0,st1
+		fild [rectac]
+		fadd st0,st1
+		fild [rectab]
+		fxch 
+		fdiv st0,st1
+		fild [valormedio]
+		fadd st0,st1
+		FRNDINT 
+		fist[resultRec]
+		;fadd st0,st1
+		;fist [resultado
+		fwait
+		cmp [resultRec],0
+		jb sal1
+		cmp [resultRec],500
+		ja sal1
+		
+		invoke    LineTo, [ps.hdc],[valorx],[resultRec]
+     sal1:
+     sub cx,2
+   	cmp [coltv],0
+   	ja dbr
+    
+    invoke    EndPaint,[hWnd], ps
+    ret
+endp
+
+
+proc DibujaFiguraCA,hWnd
+  ;  Propósito: Dibuja una figura en nuestra ventana
+    ;  Entrada	: newColor:DWORD, uhdc:DWORD, uhPen:DWORD
+    ;  Salida	: Ninguna
+    ;  Destruye : Ninguna
+    invoke    BeginPaint,[hWnd], ps	       ; Devuelve un handle donde dibujar
+    mov       [hdc], eax		       ; Guardamos el contexto de dispositivo
+    ; La línea de las figuras las pintamos en rojo con CrexatePen
+    invoke    CreatePen,PS_SOLID,1,00008000h  ; Rojo
+    mov       [hPen], eax		       ; Creamos la pluma del color especificado
+    invoke    SelectObject,[hdc],[hPen]        ; Aplicamos el color a las líneas
+    mov       [hPenOld], eax		       ; Guardamos la pluma original
+    stdcall   CambiaColorFondo,  0A5CFF8h, [hdc]  ; BBGGRR-Piel
+    mov       [hBrushOld], eax		       ; Guardamos el fondo original
+    ; aquí dibujamos la figura 
+   ;invoke    Ellipse,[ps.hdc],130,10,190,90   ; Dibujamos la cabeza
+   	mov [coltv],500;
+   	mov [valorx],1;
+   	mov [valory],-250
+   		finit
+   		fild [curvaf]
+   		fild [valory]
+		fild [curvad]
+		fmul st0,st1
+		fadd st0,st1
+		fild [valory]
+		fild [valory]
+		fmul st0,st1
+		fild [curvaa]
+		fmul st0,st1
+		fild [curvae]
+		
+		fxch 
+		fdiv st0,st1
+		fild [valormedio]
+		fadd st0,st1
+		FRNDINT 
+		fist [resultCurv]
+		;fadd st0,st1
+		;fist [resultado
+		fwait
+		
+		
+   		
+   	
+   	dbr12:
+   		invoke MoveToEx,[ps.hdc],[valorx],[resultCurv],0; para que incicie en un valor donde se puede y no produsca error
+   	    ;invoke    LineTo, [ps.hdc],20,300
+   	    sub [coltv],2
+   	    add [valorx],2 
+   		add [valory],2
+   		finit
+   		fild [curvaf]
+   		fild [valory]
+		fild [curvae]
+		fmul st0,st1
+		fadd st0,st1
+		fild [valory]
+		fild [valory]
+		fmul st0,st1
+		fild [curvaa]
+		fmul st0,st1
+		fild [curvad]
+		
+		fxch 
+		fdiv st0,st1
+		fild [valormedio]
+		fadd st0,st1
+		FRNDINT 
+		fist [resultCurv]
+		;fadd st0,st1
+		;fist [resultado
+		fwait
+		cmp [resultCurv],0
+		jb sal12
+		cmp [resultCurv],500
+		ja sal12
+		
+		invoke    LineTo, [ps.hdc],[valorx],[resultCurv]
+     sal12:
+     
+   	cmp [coltv],0
+   	ja dbr12
+    
+    invoke    EndPaint,[hWnd], ps
+    ret
+endp
+
+proc DibujaFiguraCB,hWnd
+    ;  Propósito: Dibuja una figura en nuestra ventana
+    ;  Entrada	: newColor:DWORD, uhdc:DWORD, uhPen:DWORD
+    ;  Salida	: Ninguna
+    ;  Destruye : Ninguna
+    invoke    BeginPaint,[hWnd], ps	       ; Devuelve un handle donde dibujar
+    mov       [hdc], eax		       ; Guardamos el contexto de dispositivo
+    ; La línea de las figuras las pintamos en rojo con CrexatePen
+    invoke    CreatePen,PS_SOLID,1,00A4661Ah ; Rojo
+    mov       [hPen], eax		       ; Creamos la pluma del color especificado
+    invoke    SelectObject,[hdc],[hPen]        ; Aplicamos el color a las líneas
+    mov       [hPenOld], eax		       ; Guardamos la pluma original
+    stdcall   CambiaColorFondo,  0A5CFF8h, [hdc]  ; BBGGRR-Piel
+    mov       [hBrushOld], eax		       ; Guardamos el fondo original
+    ; aquí dibujamos la figura 
+   ;invoke    Ellipse,[ps.hdc],130,10,190,90   ; Dibujamos la cabeza
+   	mov [coltv],500;
+   	mov [valory],-250;
+   		finit
+   		fild [curvaf]
+   		fild [valory]
+		fild [curvae]
+		fmul st0,st1
+		fadd st0,st1
+		fild [valory]
+		;fild [valory]
+		;fmul st0,st1
+		fmul st0,st0
+		fild [curvaa]
+		fmul st0,st1
+		fild [curvad]
+		
+		fxch 
+		fdiv st0,st1
+		fild [valormedio]
+		fadd st0,st1
+		FRNDINT 
+		fist [resultCurv]
+		;fadd st0,st1
+		;fist [resultado
+		fwait
+		
+		
+   		
+   	
+   	dbr2:
+   		invoke MoveToEx,[ps.hdc],[resultCurv],[coltv],0; para que incicie en un valor donde se puede y no produsca error
+   	    ;invoke    LineTo, [ps.hdc],20,300
+   	    sub [coltv],1 
+   		add [valory],1
+   		finit
+   		fild [curvaf]
+   		fild [valory]
+		fild [curvae]
+		fmul st0,st1
+		fadd st0,st1
+		fild [valory]
+		;fild [valory]
+		;fmul st0,st1
+		fmul st0,st0
+		fild [curvaa]
+		fmul st0,st1
+		fild [curvad]
+		
+		fxch 
+		fdiv st0,st1
+		fild [valormedio]
+		fadd st0,st1
+		FRNDINT 
+		fist [resultCurv]
+		;fadd st0,st1
+		;fist [resultado
+		fwait
+		cmp [resultCurv],0
+		jb sal22
+		cmp [resultCurv],500
+		ja sal22
+		
+		invoke    LineTo, [ps.hdc],[resultCurv],[coltv]
+     sal22:
+     
+   	cmp [coltv],0
+   	ja dbr2
+    
+    invoke    EndPaint,[hWnd], ps
+    ret
+endp
+
+proc DibujaFiguraE,hWnd
+    ;  Propósito: Dibuja una figura en nuestra ventana
+    ;  Entrada	: newColor:DWORD, uhdc:DWORD, uhPen:DWORD
+    ;  Salida	: Ninguna
+    ;  Destruye : Ninguna
+    invoke    BeginPaint,[hWnd], ps	       ; Devuelve un handle donde dibujar
+    mov       [hdc], eax		       ; Guardamos el contexto de dispositivo
+    ; La línea de las figuras las pintamos en rojo con CrexatePen
+    invoke    CreatePen,PS_SOLID,1,00800080h ; Rojo
+    mov       [hPen], eax		       ; Creamos la pluma del color especificado
+    invoke    SelectObject,[hdc],[hPen]        ; Aplicamos el color a las líneas
+    mov       [hPenOld], eax		       ; Guardamos la pluma original
+    stdcall   CambiaColorFondo,  0A5CFF8h, [hdc]  ; BBGGRR-Piel
+    mov       [hBrushOld], eax		       ; Guardamos el fondo original
+    ; aquí dibujamos la figura 
+   ;invoke    Ellipse,[ps.hdc],130,10,190,90   ; Dibujamos la cabeza
+   	mov [coltv],500;
+   	mov [valory],-249;
+   	mov [valorx],1
+   		finit
+   		fild [elipsea]
+   		fmul st0,st0
+   		fild [elipseh]
+   		fild [valory]
+   		fsub st0,st1
+   		;fmul st0,st0
+   		fdiv st0,st1
+   		 
+   		fld [elipsev1]
+   		fsub st0,st1
+   		fild [elipseb]
+   		fmul st0,st1
+   		fild [elipseb]
+   		fmul st0,st1
+   		
+   		fsqrt 
+   		;fild [elipsek]
+   		;fadd st0,st1
+   		;fild [valortotal]
+   		;fsub st0,st1
+   		;fchs
+   		frndint 
+   		fist [resultElips]
+		fwait
+		
+		
+   		add [vlantx],1
+   		finit 
+   		fild [resultElips]
+   		fild [elipsek]
+   		fadd st0,st1
+   		fild [valormedio]
+   		fadd st0,st1  ;
+   	    fist[vlanty1]
+   	    fild [resultElips]
+   		fild [elipsek]
+   		fsub st0,st1
+   		fild [valormedio]
+   		fsub st0,st1 ;
+   		fist [vlanty2]
+   	    fwait 
+   	
+   	dbr3:
+   		;invoke MoveToEx,[ps.hdc],[valorx],[resultElips],0; para que incicie en un valor donde se puede y no produsca error
+   	    ;invoke    LineTo, [ps.hdc],20,300
+   	    ;invoke MoveToEx,[ps.hdc],0,0,0
+   	    sub [coltv],1 
+   		add [valory],1
+   		add [valorx],1
+   		
+   		finit
+   		;fild [elipsea]
+   		;fmul st0,st0
+   		;fild [elipseh]
+   		;fild [valory]
+   		;fsub st0,st1
+   		;fmul st0,st0
+   		;fdiv st0,st1
+   		 
+   		;fild [elipsev1]
+   		;fsub st0,st1
+   		;fild [elipseb]
+   		;fmul st0,st1
+   		;fild [elipseb]
+   		;fmul st0,st1
+   		
+   		fild [elipseh]
+   		fild [valory]
+   		fsub st0,st1
+   		fmul st0,st0
+   		fild [elipsea]
+   		fmul st0,st0
+   		fxch 
+   		fdiv st0,st1
+   		fild [elipsev1]
+   		fsub st0,st1
+   		fild [elipseb]
+   		fmul st0,st1
+   		fild [elipseb]
+   		fmul st0,st1
+   		
+   		fsqrt 
+   		;fild [elipsek]
+   		;fadd st0,st1
+   		;fild [valortotal]
+   		;fsub st0,st1
+   		;fchs
+   		frndint 
+   		fist [resultElips]
+   		fwait
+   		
+   		finit
+   		
+   		fild [resultElips]
+   		fild [elipsek]
+   		fadd st0,st1
+   		fild [valormedio]
+   		fadd st0,st1   ;
+   	    fist[vlacty1]
+   	    fild [resultElips]
+   		fild [elipsek]
+   		fsub st0,st1
+   		fild [valormedio]
+   		fadd st0,st1  ;
+   		fist [vlacty2]
+		fwait
+		cmp [resultElips],0
+		jb sal32
+		cmp [resultElips],500;[resultElips],250; pareece ser que act1 es mucho mayor de lo que se espera 
+		ja sal32
+		
+		
+		;invoke LineTo,[ps.hdc],[valorx],[resultElips]
+		invoke    MoveToEx,[ps.hdc],[vlantx],[vlanty2],0
+		invoke    LineTo, [ps.hdc],[valorx],[vlacty2]
+		invoke    MoveToEx,[ps.hdc],[vlantx],[vlanty1],0
+		invoke    LineTo, [ps.hdc],[valorx],[vlacty1] ;tenemos algo
+		
+     sal32:
+     finit  
+		fild [vlacty1]
+		fist [vlanty1]
+		fild [vlacty2]
+		fist [vlanty2]
+	fwait
+		
+		add [vlantx],1
+     
+   	cmp [coltv],0
+   	ja dbr3
+    
+    invoke    EndPaint,[hWnd], ps
+    ret
+endp
+start:
+    ;invoke    GetModuleHandle, NULL
+    ;mov       [wc.hInstance], eax
+    ;mov       [wc.lpfnWndProc], WndProc
+    ;mov       [wc.lpszClassName], NombreClase
+    ;mov       [wc.hbrBackground], COLOR_BTNFACE+1
+   ;stdcall   WinMain, [wc.hInstance], NULL, NULL, SW_SHOWNORMAL
+    ;invoke    ExitProcess, [wMsg.wParam]
+
+proc WinMain uses ebx esi edi, hInst, hPrevInst, CmdLine, CmdShow
+    ;  Propósito: Inicializamos la ventana principal de la aplicación y captura errores, si los hubiere
+    ;  Entrada	: hInst, hPrevInst, CmdLine, CmdShow
+    ;  Salida	: Ninguna
+    ;  Destruye : Ninguna
+    invoke    LoadIcon,0,cdVIcono
+    mov       edx, eax
+    mov       eax, [hInst]
+    mov       ebx, NombreClase
+    mov       ecx, WndProc
+    mov       [wc.hInstance], eax
+    mov       [wc.lpszClassName], ebx
+    mov       [wc.lpfnWndProc], ecx
+    mov       [wc.hIcon], edx
+
+    invoke    LoadCursor,0,cdVCursor
+    mov       [wc.hCursor],eax
+    
+    invoke    RegisterClass,wc
+    test      eax,eax
+    jz	      error
+
+    invoke    CreateWindowEx,cdVBarTipo,NombreClase,MsgCabecera,\
+	      cdVBtnTipo,cdXPos, cdYPos, cdXSize, cdYSize,\
+	      NULL,NULL,[wc.hInstance],NULL
+    mov       [wHMain],eax
+    test      eax,eax
+    jz	      error
+
+    mov       [hWnd], eax
+
+    invoke    ShowWindow, dword hWnd, dword SW_SHOWNORMAL
+    invoke    UpdateWindow, dword hWnd
+
+  msg_loop:
+    invoke    GetMessage,wMsg,NULL,0,0
+    cmp       eax,1
+    jb	      end_loop
+    jne       msg_loop
+    invoke    TranslateMessage,wMsg
+    invoke    DispatchMessage,wMsg
+  jmp	    msg_loop
+
+  error:
+    invoke    MessageBox,NULL,MsgError,NULL,MB_ICONERROR+MB_OK
+
+  end_loop:
+    mov       eax, [wMsg.wParam]
+    ret
+endp
+
+proc WndProc,hWnd,uMsg,wParam,lParam
+    ;  Propósito: Este es el procedimiento que usa Windows para comunicarse con nuestro programa
+    ;  Entrada	: newColor:DWORD, uhdc:DWORD, uhPen:DWORD
+    ;  Salida	: Ninguna
+    ;  Destruye : Ninguna
+    push      ebx esi edi
+
+    mov       eax, [uMsg]
+    cmp       eax, WM_PAINT
+    jz	      wmPaint
+    cmp       eax, WM_DESTROY
+    jz	      wmDestroy
+    cmp       eax, WM_CREATE
+    jz	      wmCreate
+
+    wmDefault:
+	invoke	 DefWindowProc,[hWnd],[uMsg],[wParam],[lParam]
+	jmp	 wmFin
+    wmCreate:
+	mov	 eax, [hWnd]
+	mov	 [wHandle], eax
+	jmp	 wmFin
+    wmPaint:
+    ;revisamos recta
+    mov eax,[checkbox1R]
+	cmp eax,BST_UNCHECKED
+	je dibuC
+	stdcall  DibujaFiguraR, [hWnd]
+	dibuC:
+	
+	mov eax,[checkbox2C]
+	cmp eax,BST_UNCHECKED
+	je dibuE
+		mov eax,[checkbox2CA]
+		cmp eax,BST_UNCHECKED
+		je dibuCB
+		
+		stdcall DibujaFiguraCA, [hWnd]
+		jmp dibuE
+		dibuCB:
+		mov eax,[checkbox2CB]
+		cmp eax,BST_UNCHECKED
+		je dibuE
+		stdcall DibujaFiguraCB, [hWnd]
+	dibuE:
+		mov eax,[checkbox3E]
+		cmp eax,BST_UNCHECKED
+		je wmFin
+		
+		stdcall DibujaFiguraE, [hWnd]
+		
+	jmp	 wmFin
+    wmDestroy:
+	invoke	 PostQuitMessage,0
+    wmFin:
+	
+    pop       edi esi ebx
+    ret
+endp
+section '.idata' import data readable writeable
+  ;importamos solo los procedimientos basicos para abrir una ventana
+  ;importaremos todos para no tener mas problemas 
+  ;otra forma para importar los procedimientos importando archivos INC
+  library kernel32,'KERNEL32.DLL',user32,'USER32.DLL',gdi32,'GDI32.DLL'
+  include 'api\kernel32.inc'
+  include 'api\user32.inc'
+  include 'api\gdi32.inc'
+
+section '.rsrc' resource from 'prueba1.res' data readable
